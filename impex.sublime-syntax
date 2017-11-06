@@ -1,0 +1,123 @@
+%YAML 1.2
+---
+name: ImpEx
+scope: text.impex
+file_extensions: [impex]
+
+contexts:
+  main:
+    - include: macros
+    - include: headers
+    - include: comments
+    - include: rows
+    - include: string
+  comments:
+    - match: '(#).*$\n?'
+      scope: comment.line.impex
+      captures:
+        1: punctuation.definition.comment.impex
+  headers:
+    - match: \b(INSERT_UPDATE|INSERT|UPDATE|DELETE)\b
+      scope: storage.type.action.impex
+      push:
+        - meta_scope: meta.structure.header.impex
+        - match: \b\w+\b
+          scope: entity.name.type.impex
+          push:
+            - include: columns
+        - match: $\n?
+          pop: true
+  columns:
+    - include: column-definitions
+    - match: ';'
+      scope: punctuation.separator.columns.impex
+      pop: true
+  column-definitions:
+    - meta_scope: meta.structure.column-definition.impex
+    - match: (\w+)\b
+      captures:
+        1: entity.name.column.impex
+    - include: parameters
+    - include: arguments
+    - match: \b\s|,|$
+      pop: true
+  macros:
+    - include: macro-name
+    - match: '='
+      scope: keyword.operator.macro.assignment.impex
+      push: 
+        - include: macro-string
+        - include: column-definitions
+        - match: \n|;|$
+          scope: punctuation.macro.end-of-line.impex
+          pop: true
+  macro-name:
+    - match: \$\w+\b
+      scope: entity.name.macro.impex
+  arguments:
+    - match: '\('
+      scope: punctuation.section.argument-list.impex
+      push:
+        - meta_scope: meta.structure.arguments.impex
+        - include: column-definitions
+        - match: '\)'
+          scope: punctuation.section.argument-list.impex
+          pop: true
+  parameters:
+    - match: '\['
+      scope: punctuation.section.parameter-list.impex
+      push:
+        - meta_scope: meta.structure.parameter-list.impex
+        - include: parameter-assignments
+  parameter-assignments:
+    - match: \b(?=\w+\.?)+\b
+      scope: entity.name.parameter.impex
+    - include: macro-name
+    - match: '='
+      scope: keyword.operator.assignment.impex
+      set:
+        - include: macro-name
+        - match: \b(?=\w+\.?)+\b
+          scope: value.parameter-list.impex
+        - match: ','
+          scope: punctuation.separator.parameter-list.impex
+          set:
+            - include: parameter-assignments
+        - match: '\]'
+          scope: punctuation.section.parameter-list.impex
+          pop: true
+  macro-string:
+    - match: '([\w,\.]+\s+)+\w+'
+      scope: string.unquoted.impex
+  rows:
+    - match: ^\s*;
+      scope: punctuation.separator.row.start.impex
+      push:
+        - meta_scope: meta.structure.row.impex
+        - include: separators
+        - match: '[^;,\$"]+'
+          scope: string.unquoted.impex
+        - match: $
+          pop: true
+        - include: macro-name
+        - include: string
+  separators:
+    - match: ;
+      scope: punctuation.separator.row.impex
+    - match: ','
+      scope: punctuation.separator.array.impex
+  string:
+    - match: '"'
+      scope: punctuation.definition.string.begin.impex
+      push:
+        - meta_scope: string.quoted.double.impex
+        - match: '(?=SELECT|UPDATE|INSERT|DELETE)'
+          push: 
+            - match: '(?=")'
+              pop: true
+            - include: scope:source.sql
+        - match: '"'
+          scope: punctuation.definition.string.end.impex
+          pop: true
+
+
